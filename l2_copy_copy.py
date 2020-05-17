@@ -30,10 +30,10 @@ log = core.getLogger()
 # which we last saw a packet *from* 'MAC-addr'.
 # (In this case, we use a Connection object for the switch.)
 table = {}
-mac_to_port = {"00:00:00:00:01": 2,
-               "00:00:00:00:02": 4,
-	       "00:00:00:00:03": 1,
-	       "00:00:00:00:04": 3}
+mac_to_port = {"00:00:00:00:00:01": 2,
+               "00:00:00:00:00:02": 4,
+	       "00:00:00:00:00:03": 1,
+	       "00:00:00:00:00:04": 3}
 # To send out all ports, we can uue either of the special ports
 # OFPP_FLOOD or OFPP_ALL.  We'd like to just use OFPP_FLOOD,
 # but it's not clear if all switches support this, so we make
@@ -41,21 +41,6 @@ mac_to_port = {"00:00:00:00:01": 2,
 all_ports = of.OFPP_FLOOD
 
 
-
-
-# Handle messages the switch has sent us because it has no
-# matching rule.
-def _handle_PacketIn (event):
-  packet = event.parsed
-
-  dst_port = mac_to_port[str(packet.dst)]
-  log.info(dst_port)
-  msg = of.ofp_flow_mod()
-  msg.data = event.ofp 
-  msg.match.dl_src = packet.src
-  msg.match.dl_dst = packet.dst
-  msg.actions.append(of.ofp_action_output(port = dst_port))
-  event.connection.send(msg)
 
 
 class DayTimeEvent(Event):
@@ -72,18 +57,31 @@ def _handle_DayTimeEvent(event):
   pass
   #log.info(event.foo())
 
+def _handle_ConnectionUp(event):
+  log.info("connected")
+
+# Handle messages the switch has sent us because it has no
+# matching rule.
+def _handle_PacketIn (event):
+  packet = event.parsed
+
+  dst_port = mac_to_port[str(packet.dst)]
+  log.info(dst_port)
+  msg = of.ofp_flow_mod()
+  msg.data = event.ofp 
+  msg.match.dl_src = packet.src
+  msg.match.dl_dst = packet.dst
+  msg.hard_timeout = 3
+  msg.actions.append(of.ofp_action_output(port = dst_port))
+  event.connection.send(msg)
+
+def f():
+  log.info("HERE")
+
 def launch (disable_flood = False):
   global all_ports
   if disable_flood:
     all_ports = of.OFPP_ALL
 
   core.openflow.addListenerByName("PacketIn", _handle_PacketIn)
-
   log.info("Pair-Learning switch running.")
-  handy = Handy()
-  handy.addListener(DayTimeEvent, _handle_DayTimeEvent)
-  # regularly check time of day and update actions in the flow table
-  while(True):
-    time.sleep(2)
-    dte = DayTimeEvent()
-    handy.raiseEvent(dte)
