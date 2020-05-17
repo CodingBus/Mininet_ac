@@ -45,10 +45,19 @@ Hardcoded AC table to return whether or not a user is allowed to access a file.
 
 import datetime
 
-ac_table = {("00:00:00:00:00:01", "00:00:00:00:00:02"): (6, 22),
-            ("00:00:00:00:00:01", "00:00:00:00:00:04"): (12, 18),
+ac_table = {
+            ("00:00:00:00:00:01", "00:00:00:00:00:02"): (0, 0),
+            ("00:00:00:00:00:01", "00:00:00:00:00:03"): (0, 0),
+            ("00:00:00:00:00:01", "00:00:00:00:00:04"): (0, 0),
+            ("00:00:00:00:00:02", "00:00:00:00:00:01"): (0, 0),
+            ("00:00:00:00:00:02", "00:00:00:00:00:03"): (0, 0),
+            ("00:00:00:00:00:02", "00:00:00:00:00:04"): (0, 0),
+            ("00:00:00:00:00:03", "00:00:00:00:00:01"): (0, 0),
             ("00:00:00:00:00:03", "00:00:00:00:00:02"): (0, 0),
-            ("00:00:00:00:00:03", "00:00:00:00:00:04"): (0, 0)}
+            ("00:00:00:00:00:03", "00:00:00:00:00:04"): (0, 0),
+            ("00:00:00:00:00:04", "00:00:00:00:00:01"): (0, 0),
+            ("00:00:00:00:00:04", "00:00:00:00:00:02"): (0, 0),
+            ("00:00:00:00:00:04", "00:00:00:00:00:03"): (0, 0)}
 
 # Arguments are the hours of valid access. True if access granted
 def getAccess(start, end):
@@ -59,6 +68,7 @@ def getAccess(start, end):
   today_start = now.replace(hour=start, minute=0, second=0, microsecond=0)
   today_end = now.replace(hour=end, minute=0, second=0, microsecond=0)
   return today_start < now < today_end
+
 """
 def main():
   start, end = ac_table[("00:00:00:00:00:03", "00:00:00:00:00:04")]
@@ -98,7 +108,11 @@ def _handle_PacketIn (event):
   msg.match.dl_src = packet.src
   msg.match.dl_dst = packet.dst
   msg.hard_timeout = 3
-  msg.actions.append(of.ofp_action_output(port = dst_port))
+  tpl = ac_table[(str(packet.src), str(packet.dst))]
+  if (getAccess(tpl[0], tpl[1])):
+    msg.actions.append(of.ofp_action_output(port = dst_port))
+  else:
+    log.info("past your bedtime..")
   event.connection.send(msg)
 
 def f():
